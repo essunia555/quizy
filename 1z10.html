@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zaawansowany Quiz - Fiszki i Gra</title>
+    <style>
+        :root {
+            --bg-color: #202020;
+            --surface-color: #2d2d2d;
+            --surface-hover: #3a3a3a;
+            --text-primary: #f5f5f5;
+            --text-secondary: #b5b5b5;
+            --accent-color: #bb86fc;
+            --accent-hover: #9955eb;
+            --error-color: #cf6679;
+            --success-color: #03dac6;
+            --border-color: #444444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; position: relative; }
+
+        /* Wersja */
+        .version-tag { position: fixed; bottom: 8px; left: 12px; color: var(--text-secondary); font-size: 0.75rem; z-index: 1000; pointer-events: none; opacity: 0.7; }
+
+        /* Instagram Logo */
+        .ig-logo {
+            position: fixed; bottom: 12px; right: 12px; width: 42px; height: 42px;
+            background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%);
+            border-radius: 10px; display: flex; justify-content: center; align-items: center;
+            text-decoration: none; box-shadow: 0 4px 8px rgba(0,0,0,0.3); z-index: 1000; transition: transform 0.2s;
+        }
+        .ig-logo:hover { transform: scale(1.1); }
+        .ig-logo svg { fill: white; width: 24px; height: 24px; }
+        .ig-logo::after {
+            content: '@drep.at'; position: absolute; bottom: 50px; right: 0; background: var(--surface-color);
+            color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s; white-space: nowrap; border: 1px solid var(--border-color);
+        }
+        .ig-logo:hover::after { opacity: 1; }
+
+        /* Nawigacja */
+        .top-bar { display: flex; align-items: center; padding: 1rem; background-color: var(--surface-color); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100; }
+        .back-btn { background: transparent; border: none; color: var(--accent-color); font-size: 1.5rem; cursor: pointer; margin-right: 1rem; display: none; padding: 0 0.5rem; }
+        .header-title { flex: 1; text-align: center; font-size: 1.2rem; font-weight: bold; }
+        .undo-btn-ui { background: transparent; border: none; color: var(--accent-color); font-size: 1rem; cursor: pointer; font-weight: bold; display: none; }
+        
+        /* Widoki */
+        .view { display: none; padding: 2rem 1rem; max-width: 800px; margin: 0 auto; animation: fadeIn 0.25s ease-out; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Toast */
+        .toast-msg { background-color: rgba(207, 102, 121, 0.2); border: 1px solid var(--error-color); color: #ff99aa; padding: 0.8rem; border-radius: 8px; margin-bottom: 1rem; text-align: center; font-size: 0.95rem; display: none; }
+        .toast-success { background-color: rgba(3, 218, 198, 0.2); border: 1px solid var(--success-color); color: var(--success-color); }
+
+        /* UI Kontrolki */
+        .auth-card { background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 2.5rem 2rem; max-width: 440px; margin: 2rem auto; box-shadow: 0 8px 24px rgba(0,0,0,0.35); text-align: center; }
+        .auth-input { width: 100%; padding: 0.9rem 1rem; margin-bottom: 0.9rem; background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 1rem; outline: none; transition: 0.2s; }
+        .auth-input:focus { border-color: var(--accent-color); }
+        .auth-btn-row { display: flex; gap: 0.8rem; margin-bottom: 1rem; }
+        .auth-btn-row button { flex: 1; }
+
+        .btn-primary { width: 100%; background-color: var(--accent-color); color: #000; padding: 0.9rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-primary:hover { background-color: var(--accent-hover); }
+        .btn-secondary { width: 100%; background-color: transparent; color: var(--text-secondary); padding: 0.8rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.95rem; cursor: pointer; transition: 0.2s; }
+        .btn-secondary:hover { background-color: var(--surface-hover); color: var(--text-primary); }
+
+        .menu-btn { display: block; width: 100%; padding: 1.2rem; margin-bottom: 1rem; background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 1.1rem; cursor: pointer; transition: 0.2s; text-align: center; font-weight: bold; position: relative; }
+        .menu-btn:hover { background-color: var(--surface-hover); border-color: var(--accent-color); }
+        .menu-btn.locked { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+        .menu-btn.locked::after { content: '🔒'; position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 1.2rem; }
+
+        /* Przełącznik odwrócenia fiszek w menu */
+        .settings-box { background: var(--surface-color); padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }
+        .settings-box label { font-size: 0.95rem; cursor: pointer; color: var(--text-primary); user-select: none; }
+        .settings-box input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent-color); cursor: pointer; }
+
+        /* Kategorie */
+        .category-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .cat-label { display: flex; align-items: center; background: var(--surface-color); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer; user-select: none; }
+        .cat-label input { margin-right: 10px; width: 18px; height: 18px; accent-color: var(--accent-color); }
+        .cat-label.all-cat { grid-column: 1 / -1; background: rgba(187, 134, 252, 0.12); border-color: var(--accent-color); }
+
+        /* Fiszki */
+        .counter { text-align: center; color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 0.2rem; }
+        .card-category { text-align: center; color: var(--accent-color); font-size: 0.95rem; margin-bottom: 1.5rem; font-weight: bold; }
+        .flashcard-container { perspective: 1000px; width: 100%; height: 350px; margin-bottom: 2rem; position: relative; }
+        .flashcard { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d; transition: transform 0.5s, left 0.3s; cursor: pointer; left: 0; box-shadow: 0 8px 20px rgba(0,0,0,0.35); border-radius: 12px; }
+        .flashcard.flipped { transform: rotateY(180deg); }
+        .flashcard-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; padding: 2rem; text-align: center; border-radius: 12px; font-size: 1.4rem; background-color: var(--surface-color); border: 1px solid var(--border-color); }
+        .flashcard-back { transform: rotateY(180deg); background-color: #363636; color: var(--accent-color); overflow-y: auto; }
+
+        .action-buttons { display: flex; gap: 1rem; }
+        .action-btn { flex: 1; padding: 1rem; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer; color: #fff; }
+        .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-wrong { background-color: var(--error-color); }
+        .btn-correct { background-color: var(--success-color); color: #000; }
+
+        /* Tryb gry */
+        .game-input { width: 100%; padding: 1.2rem; font-size: 1.1rem; background: var(--bg-color); border: 1px solid var(--border-color); color: white; border-radius: 8px; margin-bottom: 1rem; outline: none; }
+        .game-input:focus { border-color: var(--accent-color); }
+        .feedback { text-align: center; padding: 1rem; border-radius: 8px; font-weight: bold; margin-bottom: 1rem; display: none; }
+
+        /* Admin */
+        .admin-item { flex-direction: column; align-items: flex-start; gap: 0.5rem; background: var(--surface-color); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; border: 1px solid var(--border-color); }
+        .admin-btn-row { display: flex; gap: 0.5rem; width: 100%; margin-top: 0.5rem; justify-content: flex-end;}
+        .btn-small { background: var(--border-color); color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 4px; cursor: pointer; }
+        .btn-small:hover { background-color: var(--surface-hover); }
+        
+        .admin-form-box { background: var(--surface-color); padding: 1.5rem; border: 1px solid var(--accent-color); border-radius: 8px; margin-bottom: 1.5rem; display: none; }
+        .admin-form-box h3 { margin-bottom: 1rem; color: var(--accent-color); }
+        .admin-form-box select, .admin-form-box input { margin-bottom: 1rem; }
+    </style>
+
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+    <div class="version-tag">wersja: 1.0.10</div>
+
+    <a href="https://www.instagram.com/drep.at" target="_blank" class="ig-logo" title="Twórca: @drep.at">
+        <svg viewBox="0 0 24 24">
+            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+        </svg>
+    </a>
+
+    <div class="top-bar">
+        <button class="back-btn" id="back-btn" onclick="goBack()">&#8592;</button>
+        <div class="header-title" id="header-title">Aplikacja 10 000 Pytań</div>
+        <button class="undo-btn-ui" id="undo-btn" onclick="undoLastAction()">&#8634; Cofnij</button>
+    </div>
+
+    <div id="view-init" class="view active">
+        <div style="text-align: center; margin-top: 4rem;">
+            <h2>Ładowanie aplikacji...</h2>
+            <p style="color: var(--text-secondary); margin-top: 10px;">Łączenie z bazą pytań i serwerem.</p>
+        </div>
+    </div>
+
+    <!-- LOGOWANIE -->
+    <div id="view-auth" class="view">
+        <div class="auth-card">
+            <h2 style="margin-bottom: 0.5rem;">Logowanie do konta</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem;">Zaloguj się lub utwórz konto, aby synchronizować postępy.</p>
+            <div id="auth-toast" class="toast-msg"></div>
+            <input type="email" id="auth-email" class="auth-input" placeholder="Twój e-mail" autocomplete="email">
+            <input type="password" id="auth-password" class="auth-input" placeholder="Twoje hasło" autocomplete="current-password" onkeypress="handleAuthKeyPress(event)">
+
+            <div class="auth-btn-row">
+                <button class="btn-primary" onclick="handleEmailLogin()">Zaloguj się</button>
+                <button class="btn-secondary" onclick="handleEmailRegister()">Zarejestruj</button>
+            </div>
+            <button class="btn-secondary" onclick="loginAsGuest()" style="margin-top: 0.5rem;">Kontynuuj bez logowania (Gość)</button>
+        </div>
+    </div>
+
+    <!-- MENU -->
+    <div id="view-home" class="view">
+        <div style="text-align: center; padding: 1rem 0 1.5rem 0;">
+            <p id="user-greeting" style="color: var(--accent-color); font-weight: bold; margin-bottom: 0.8rem;"></p>
+            <div style="display: flex; gap: 0.5rem; justify-content: center; max-width: 320px; margin: 0 auto;">
+                <button class="btn-secondary" onclick="logout()" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Wyloguj się</button>
+                <button class="btn-secondary" onclick="resetStats()" style="padding: 0.5rem 1rem; font-size: 0.9rem; color: var(--error-color);">Wyczyść postęp</button>
+            </div>
+            <div id="home-toast" class="toast-msg toast-success" style="max-width: 350px; margin: 1rem auto 0 auto;"></div>
+        </div>
+
+        <div style="text-align: center; padding: 1.5rem 1rem;" id="loading-box">
+            <h3 style="color: var(--accent-color); margin-bottom: 0.5rem;">Pobieranie baz pytań...</h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">To potrwa tylko chwilę.</p>
+        </div>
+
+        <div id="main-menu-buttons" style="display: none;">
+            <button id="btn-flashcards" class="menu-btn locked" onclick="openCategories('flashcards')">1z10 Fiszki</button>
+            <button id="btn-game" class="menu-btn locked" onclick="openCategories('game')">1z10 Wpisywanie</button>
+            <button id="btn-polish" class="menu-btn locked" onclick="openCategories('polish')">Język polski fiszki</button>
+            <button id="btn-english" class="menu-btn locked" onclick="openCategories('english')">Język angielski fiszki</button>
+            
+            <!-- Przełącznik odwrócenia fiszek -->
+            <div class="settings-box">
+                <label for="reverse-flashcards-toggle">Odwróć fiszki (Odpowiedź z przodu)</label>
+                <input type="checkbox" id="reverse-flashcards-toggle" onchange="toggleReverseFlashcards(this)">
+            </div>
+
+            <button id="btn-admin" class="menu-btn" style="display:none; background-color: var(--error-color); color: #fff; margin-top:1rem;" onclick="openAdminPanel()">Wszystkie pytania [ADMIN]</button>
+
+            <div style="margin-top: 2rem; padding: 1.5rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; text-align: left;">
+                <h4 style="margin-bottom: 0.5rem; color: var(--accent-color);">Odblokuj nowe tryby</h4>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">Wpisz kod dostępu, aby odblokować ukryte kategorie.</p>
+                <input type="text" id="unlock-code" class="auth-input" placeholder="Wpisz kody..." style="margin-bottom: 0.8rem;" onkeypress="handleCodeKeyPress(event)">
+                <button class="btn-primary" onclick="redeemCode()">Odblokuj</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KATEGORIE -->
+    <div id="view-categories" class="view">
+        <h2 style="margin-bottom: 1rem;">Wybierz kategorie</h2>
+        <div id="cat-toast" class="toast-msg"></div>
+        <div class="category-list" id="category-list"></div>
+        <button class="btn-primary" onclick="startSelectedMode()">Rozpocznij</button>
+    </div>
+
+    <!-- FISZKI -->
+    <div id="view-flashcards" class="view">
+        <div class="counter" id="fc-counter">Pozostało: 0</div>
+        <div class="card-category" id="fc-cat-display">Kategoria: -</div>
+        
+        <div class="flashcard-container" id="fc-container">
+            <div class="flashcard" id="flashcard" onclick="flipCard()">
+                <div class="flashcard-face" id="fc-front">Pytanie...</div>
+                <div class="flashcard-face flashcard-back" id="fc-back">Odpowiedź...</div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="action-btn btn-wrong" id="btn-fc-wrong" onclick="handleCardSwipe(false)">ŹLE (←)</button>
+            <button class="action-btn btn-correct" id="btn-fc-correct" onclick="handleCardSwipe(true)">DOBRZE (→)</button>
+        </div>
+        <p style="text-align: center; color: var(--text-secondary); font-size: 0.85rem; margin-top: 15px;">Na PC: Spacja (odwróć)</p>
+    </div>
+
+    <!-- GRA WPISYWANIE -->
+    <div id="view-game" class="view">
+        <div class="counter" id="game-counter">Pozostało: 0</div>
+        <div class="menu-btn" id="game-question" style="cursor: default; min-height: 140px; display: flex; align-items: center; justify-content: center; padding: 1.5rem;">Pytanie...</div>
+        
+        <div id="game-feedback" class="feedback"></div>
+
+        <div id="game-controls">
+            <input type="text" id="game-input" class="game-input" placeholder="Wpisz odpowiedź i naciśnij Enter..." autocomplete="off">
+            <button class="btn-primary" onclick="checkGameAnswer()">Sprawdź</button>
+            <button class="btn-secondary" onclick="skipGameQuestion()">Pomiń pytanie</button>
+        </div>
+        
+        <button class="btn-primary" id="game-next-btn" style="display:none; margin-top: 10px;" onclick="loadNextGameQuestion()">Przejdź dalej (Enter)</button>
+    </div>
+
+    <!-- ADMIN -->
+    <div id="view-admin" class="view">
+        <h2 style="margin-bottom: 1rem;">Panel Admina</h2>
+        
+        <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center;">
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.8rem;">Zsynchronizuj bazy danych z dedykowanymi plikami JSON na GitHubie.</p>
+            <button class="btn-secondary" onclick="syncDatabasesFromGithub()" style="border-color: var(--success-color); color: var(--success-color); width: 100%; margin-bottom: 0.5rem;">Zsynchronizuj dane (Pobierz z GitHub do bazy)</button>
+            <button class="btn-secondary" onclick="migrateDatabase()" style="border-color: #bb86fc; color: #bb86fc; width: 100%;">Migruj bazę główną (Awaryjnie z Gist)</button>
+        </div>
+
+        <button class="btn-primary" onclick="openAdminForm(-1)" style="margin-bottom: 1rem;">+ Dodaj nowe pytanie</button>
+        
+        <div id="admin-form-box" class="admin-form-box">
+            <h3 id="admin-form-title">Edytor pytania</h3>
+            <label style="font-size: 0.85rem; color: var(--text-secondary);">Główny tryb:</label>
+            <select id="admin-mode" class="auth-input" onchange="updateAdminFormCategories()">
+                <option value="main">1z10 Fiszki / 1z10 Wpisywanie</option>
+                <option value="polish">Język polski</option>
+                <option value="english">Język angielski</option>
+            </select>
+            
+            <label style="font-size: 0.85rem; color: var(--text-secondary);">Podkategoria:</label>
+            <select id="admin-cat" class="auth-input" onchange="checkAdminNewCat()"></select>
+            <input type="text" id="admin-new-cat" class="auth-input" placeholder="Wpisz nazwę nowej kategorii..." style="display:none;">
+
+            <label style="font-size: 0.85rem; color: var(--text-secondary);">Treść pytania:</label>
+            <input type="text" id="admin-q" class="auth-input" placeholder="Wpisz pytanie...">
+            
+            <label style="font-size: 0.85rem; color: var(--text-secondary);">Odpowiedź:</label>
+            <input type="text" id="admin-a" class="auth-input" placeholder="Wpisz odpowiedź...">
+            
+            <div class="auth-btn-row" style="margin-top: 1rem; margin-bottom: 0;">
+                <button class="btn-primary" onclick="saveAdminForm()">Zapisz w Bazie</button>
+                <button class="btn-secondary" onclick="closeAdminForm()">Anuluj</button>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            <select id="admin-filter-mode" class="auth-input" onchange="renderAdminQuestions()" style="margin-bottom: 0.5rem;">
+                <option value="main">Baza: 1z10</option>
+                <option value="polish">Baza: Język polski</option>
+                <option value="english">Baza: Język angielski</option>
+            </select>
+            <select id="admin-filter-cat" class="auth-input" onchange="renderAdminQuestions()"></select>
+        </div>
+        
+        <div id="admin-questions-list" style="max-height: 45vh; overflow-y: auto; padding-right: 5px;"></div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBEEQRaMixLL5Y4OfDqVqrVXI7kxTyPIT8",
+            authDomain: "k-pytan-315a8.firebaseapp.com",
+            databaseURL: "https://k-pytan-315a8-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "k-pytan-315a8",
+            storageBucket: "k-pytan-315a8.firebasestorage.app",
+            messagingSenderId: "450721681490",
+            appId: "1:450721681490:web:ae4b3c4d2a1c52989b8f8b",
+            measurementId: "G-TV92WF7E78"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database(); 
+
+        // ====== LINKI Z GITHUBA ======
+        const MAIN_GIST_URL = 'https://gist.githubusercontent.com/essunia555/5681d670fc704572938a8186071253f2/raw/bf4b257c714a868c07c335afbea496a6f15de30a/10kp.json';
+        const POLISH_GITHUB_URL = 'https://gist.githubusercontent.com/essunia555/fc28bde839b38efe685fb4e596ed842d/raw/a611574de618323b6b513aee098113dc08e62bbd/polski.json';
+        const ENGLISH_GITHUB_URL = 'https://gist.githubusercontent.com/essunia555/82aa749da253c79ae925445bef486103/raw/43b09d57fda8c74631f67035cd93bc0913b5642b/angielski.json';
+
+        let allQuestions = [], polishQuestions = [], englishQuestions = [];
+        let categories = [], polishCategories = [], englishCategories = [];
+        let currentMode = '', activePool = [], currentQuestionObj = null;
+
+        let currentUser = null; 
+        let stats = { 
+            toLearn: [], 
+            mastered: [], 
+            settings: { reverseFlashcards: false },
+            unlocked: { flashcards: false, game: false, polish: false, english: false, admin: false } 
+        };
+        let viewHistory = ['view-init'], sessionHistory = []; 
+        let dbRef = null;
+
+        // UI
+        function showAuthError(msg) { const t = document.getElementById('auth-toast'); t.className = 'toast-msg'; t.textContent = msg; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 5000); }
+        function showAuthSuccess(msg) { const t = document.getElementById('auth-toast'); t.className = 'toast-msg toast-success'; t.textContent = msg; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000); }
+        function showHomeToast(msg, isError = false) { const t = document.getElementById('home-toast'); t.className = isError ? 'toast-msg' : 'toast-msg toast-success'; t.textContent = msg; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 4000); }
+        function showCatError(msg) { const t = document.getElementById('cat-toast'); t.textContent = msg; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000); }
+
+        // BAZY
+        async function fetchAllDatabases() {
+            try {
+                db.ref('global_questions').once('value').then(async (snap) => {
+                    if(snap.exists()) {
+                        const data = snap.val();
+                        allQuestions = data.main || []; 
+                        polishQuestions = data.polish || []; 
+                        englishQuestions = data.english || [];
+                    } else {
+                        const resMain = await fetch(MAIN_GIST_URL); if (resMain.ok) allQuestions = await resMain.json();
+                        if (POLISH_GITHUB_URL) { const rP = await fetch(POLISH_GITHUB_URL); if(rP.ok) polishQuestions = await rP.json(); }
+                        if (ENGLISH_GITHUB_URL) { const rE = await fetch(ENGLISH_GITHUB_URL); if(rE.ok) englishQuestions = await rE.json(); }
+                    }
+                    categories = generateCategories(allQuestions);
+                    polishCategories = generateCategories(polishQuestions);
+                    englishCategories = generateCategories(englishQuestions);
+                    document.getElementById('loading-box').style.display = 'none';
+                    document.getElementById('main-menu-buttons').style.display = 'block';
+                }).catch(err => {
+                    document.getElementById('loading-box').innerHTML = `<h3 style="color:var(--error-color);">Błąd bazy</h3>`;
+                });
+            } catch(err) { console.error(err); }
+        }
+
+        async function syncDatabasesFromGithub() {
+            if(!currentUser || currentUser === 'guest_user') { alert("Zaloguj się jako Admin!"); return; }
+            if(!confirm("Pobrać najnowsze bazy danych z linków GitHub i zapisać je w bazie Firebase?")) return;
+            try {
+                let pData = polishQuestions, eData = englishQuestions, mData = allQuestions;
+                if (MAIN_GIST_URL) { const r = await fetch(MAIN_GIST_URL); if(r.ok) mData = await r.json(); }
+                if (POLISH_GITHUB_URL) { const r = await fetch(POLISH_GITHUB_URL); if(r.ok) pData = await r.json(); }
+                if (ENGLISH_GITHUB_URL) { const r = await fetch(ENGLISH_GITHUB_URL); if(r.ok) eData = await r.json(); }
+                
+                await db.ref('global_questions').set({ 
+                    main: mData, 
+                    polish: pData, 
+                    english: eData 
+                });
+                alert("Sukces! Dane z GitHub zostały pomyślnie zsynchronizowane z bazą Firebase.");
+                fetchAllDatabases(); setTimeout(() => openAdminPanel(), 1000);
+            } catch(e) { alert("Błąd synchronizacji: " + e.message); }
+        }
+
+        async function migrateDatabase() {
+            if(!currentUser || currentUser === 'guest_user') { alert("Zaloguj się jako Admin!"); return; }
+            if(!confirm("Migracja awaryjna nadpisze chmurę danymi z Gist. Kontynuować?")) return;
+            try {
+                const resMain = await fetch(MAIN_GIST_URL);
+                const data = await resMain.json();
+                await db.ref('global_questions/main').set(data);
+                alert("Sukces! Zainicjalizowano bazę główną."); 
+                fetchAllDatabases(); 
+                setTimeout(() => openAdminPanel(), 1000);
+            } catch(e) { alert("Błąd migracji: " + e.message); }
+        }
+
+        function generateCategories(data) {
+            let catSet = new Set();
+            if(data && data.length > 0) {
+                data.forEach((q, index) => {
+                    if(!q.category) {
+                        const catNum = Math.floor(index / 15) + 1;
+                        q.category = `Kategoria ${catNum}`;
+                    }
+                    catSet.add(q.category);
+                });
+            }
+            return Array.from(catSet).sort();
+        }
+
+        // KLAWIATURA NA PC
+        function handleAuthKeyPress(e) { if(e.key === 'Enter') handleEmailLogin(); }
+        function handleCodeKeyPress(e) { if(e.key === 'Enter') redeemCode(); }
+
+        document.addEventListener('keydown', function(e) {
+            if(document.getElementById('view-flashcards').classList.contains('active')) {
+                if (e.code === 'Space') { e.preventDefault(); flipCard(); }
+            }
+            if(document.getElementById('view-game').classList.contains('active')) {
+                const nextBtn = document.getElementById('game-next-btn');
+                if (e.key === 'Enter' && nextBtn.style.display === 'block') {
+                    e.preventDefault(); loadNextGameQuestion();
+                }
+            }
+        });
+
+        // AUTENTYKACJA
+        window.onload = function() {
+            fetchAllDatabases();
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    currentUser = user.uid;
+                    document.getElementById('user-greeting').textContent = `Zalogowano jako: ${user.email}`;
+                    if(dbRef) dbRef.off();
+                    dbRef = db.ref('users/' + currentUser);
+                    dbRef.on('value', (snapshot) => {
+                        if (snapshot.exists()) {
+                            const data = snapshot.val();
+                            stats.toLearn = data.toLearn || []; 
+                            stats.mastered = data.mastered || [];
+                            stats.settings = data.settings || { reverseFlashcards: false };
+                            stats.unlocked = data.unlocked || { flashcards: false, game: false, polish: false, english: false, admin: false };
+                        } else {
+                            stats = { toLearn: [], mastered: [], settings: { reverseFlashcards: false }, unlocked: { flashcards: false, game: false, polish: false, english: false, admin: false } };
+                        }
+                        
+                        document.getElementById('reverse-flashcards-toggle').checked = stats.settings.reverseFlashcards;
+                        updateMenuLocks();
+                    }, (err) => { loadLocalStats(currentUser); updateMenuLocks(); });
+                    showView('view-home');
+                } else {
+                    if(dbRef) { dbRef.off(); dbRef = null; }
+                    const guest = localStorage.getItem('quiz_current_user');
+                    if (guest === 'guest_user') {
+                        currentUser = 'guest_user'; loadLocalStats('guest_user'); updateMenuLocks();
+                        document.getElementById('user-greeting').textContent = `Tryb: Gość`; showView('view-home');
+                    } else {
+                        currentUser = null; showView('view-auth');
+                    }
+                }
+            });
+        };
+
+        function handleEmailLogin() {
+            document.activeElement.blur();
+            const email = document.getElementById('auth-email').value.trim(), password = document.getElementById('auth-password').value;
+            if(!email || !password) return showAuthError("Wpisz e-mail oraz hasło.");
+            auth.signInWithEmailAndPassword(email, password).catch(err => showAuthError("Błąd: " + err.message));
+        }
+
+        function handleEmailRegister() {
+            document.activeElement.blur();
+            const email = document.getElementById('auth-email').value.trim(), password = document.getElementById('auth-password').value;
+            if(!email || !password) return showAuthError("Wpisz e-mail oraz hasło.");
+            if(password.length < 6) return showAuthError("Hasło min. 6 znaków.");
+            auth.createUserWithEmailAndPassword(email, password).then(() => showAuthSuccess("Konto utworzone pomyślnie!")).catch(err => showAuthError(err.message));
+        }
+
+        function loginAsGuest() {
+            document.activeElement.blur(); currentUser = 'guest_user'; localStorage.setItem('quiz_current_user', currentUser);
+            loadLocalStats(currentUser); updateMenuLocks();
+            document.getElementById('user-greeting').textContent = `Tryb: Gość`; showView('view-home');
+        }
+
+        function logout() { if(currentUser !== 'guest_user') auth.signOut(); localStorage.removeItem('quiz_current_user'); currentUser = null; showView('view-auth'); }
+
+        // STATYSTYKI I USTAWIENIA
+        async function saveStats() {
+            if(!currentUser) return;
+            const cln = { 
+                toLearn: JSON.parse(JSON.stringify(stats.toLearn)), 
+                mastered: JSON.parse(JSON.stringify(stats.mastered)), 
+                settings: stats.settings,
+                unlocked: stats.unlocked 
+            };
+            if(currentUser === 'guest_user') {
+                localStorage.setItem('quiz_tolearn_guest', JSON.stringify(cln.toLearn));
+                localStorage.setItem('quiz_mastered_guest', JSON.stringify(cln.mastered));
+                localStorage.setItem('quiz_settings_guest', JSON.stringify(cln.settings));
+                localStorage.setItem('quiz_unlocked_guest', JSON.stringify(cln.unlocked));
+            } else {
+                localStorage.setItem(`quiz_tolearn_${currentUser}`, JSON.stringify(cln.toLearn));
+                localStorage.setItem(`quiz_mastered_${currentUser}`, JSON.stringify(cln.mastered));
+                localStorage.setItem(`quiz_settings_${currentUser}`, JSON.stringify(cln.settings));
+                localStorage.setItem(`quiz_unlocked_${currentUser}`, JSON.stringify(cln.unlocked));
+                try { 
+                    await db.ref('users/' + currentUser).set(cln); 
+                } catch(err) {
+                    console.warn("Błąd zapisu do bazy.", err);
+                }
+            }
+        }
+
+        function loadLocalStats(uid) {
+            const tl = localStorage.getItem(`quiz_tolearn_${uid}`), 
+                  m = localStorage.getItem(`quiz_mastered_${uid}`), 
+                  s = localStorage.getItem(`quiz_settings_${uid}`),
+                  u = localStorage.getItem(`quiz_unlocked_${uid}`);
+            
+            stats.toLearn = tl ? JSON.parse(tl) : []; 
+            stats.mastered = m ? JSON.parse(m) : [];
+            stats.settings = s ? JSON.parse(s) : { reverseFlashcards: false };
+            stats.unlocked = u ? JSON.parse(u) : { flashcards: false, game: false, polish: false, english: false, admin: false };
+            
+            document.getElementById('reverse-flashcards-toggle').checked = stats.settings.reverseFlashcards;
+        }
+
+        function toggleReverseFlashcards(checkbox) {
+            stats.settings.reverseFlashcards = checkbox.checked;
+            saveStats();
+        }
+
+        async function resetStats() {
+            if(!confirm("Wyczyścić postęp nauki?")) return;
+            stats.toLearn = []; 
+            stats.mastered = [];
+            
+            try {
+                if(currentUser === 'guest_user') {
+                    localStorage.removeItem('quiz_tolearn_guest');
+                    localStorage.removeItem('quiz_mastered_guest');
+                } else if(currentUser) {
+                    localStorage.removeItem(`quiz_tolearn_${currentUser}`);
+                    localStorage.removeItem(`quiz_mastered_${currentUser}`);
+                    await db.ref('users/' + currentUser + '/toLearn').remove();
+                    await db.ref('users/' + currentUser + '/mastered').remove();
+                }
+                showHomeToast("Pomyślnie wyczyszczono postęp!", false);
+            } catch(e) {
+                showHomeToast("Błąd podczas czyszczenia postępu: " + e.message, true);
+            }
+        }
+
+        function redeemCode() {
+            document.activeElement.blur(); const codeInput = document.getElementById('unlock-code'), code = codeInput.value.trim().toLowerCase();
+            let ul = false;
+            if (code === 'cheaty') { window.open("https://youtu.be/KSPxHniCtmw?si=rVVDawz6MhoMLzpr", "_blank"); codeInput.value = ''; return; }
+            else if (code === 'drep47') {
+                showHomeToast("Dostępne kody: fiszki123, wpisane456, polskieslowa, anglikslowa, cheaty, adamadmin, drep47", false);
+                codeInput.value = ''; return;
+            }
+            else if (code === 'adamadmin') { stats.unlocked.flashcards=true; stats.unlocked.game=true; stats.unlocked.polish=true; stats.unlocked.english=true; stats.unlocked.admin=true; ul=true; }
+            else if (code === 'fiszki123' && !stats.unlocked.flashcards) { stats.unlocked.flashcards=true; ul=true; }
+            else if (code === 'wpisane456' && !stats.unlocked.game) { stats.unlocked.game=true; ul=true; }
+            else if (code === 'polskieslowa' && !stats.unlocked.polish) { stats.unlocked.polish=true; ul=true; }
+            else if (code === 'anglikslowa' && !stats.unlocked.english) { stats.unlocked.english=true; ul=true; }
+
+            if (ul) { saveStats(); updateMenuLocks(); showHomeToast("Odblokowano!", false); codeInput.value = ''; } 
+            else showHomeToast("Zły kod lub już odblokowane.", true);
+        }
+
+        function updateMenuLocks() {
+            document.getElementById('btn-flashcards').classList.toggle('locked', !stats.unlocked.flashcards);
+            document.getElementById('btn-game').classList.toggle('locked', !stats.unlocked.game);
+            document.getElementById('btn-polish').classList.toggle('locked', !stats.unlocked.polish);
+            document.getElementById('btn-english').classList.toggle('locked', !stats.unlocked.english);
+            document.getElementById('btn-admin').style.display = stats.unlocked.admin ? 'block' : 'none';
+        }
+
+        function moveToMastered(qObj) { stats.toLearn = stats.toLearn.filter(q => q.question !== qObj.question); if(!stats.mastered.find(q => q.question === qObj.question)) stats.mastered.push(qObj); saveStats(); }
+        function moveToToLearn(qObj) { if(!stats.toLearn.find(q => q.question === qObj.question)) stats.toLearn.push(qObj); saveStats(); }
+
+        // WIDOKI I COFNIJ
+        function showView(viewId) {
+            document.activeElement.blur(); window.scrollTo(0, 0);
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            if(viewId !== 'view-auth' && viewId !== 'view-home' && viewId !== 'view-init') {
+                document.getElementById('back-btn').style.display = 'block';
+                if(viewHistory[viewHistory.length-1] !== viewId) viewHistory.push(viewId);
+            } else { document.getElementById('back-btn').style.display = 'none'; if(viewId === 'view-home') viewHistory = ['view-home']; }
+            updateUndoButton();
+        }
+
+        function goBack() {
+            if(viewHistory.length > 1) {
+                viewHistory.pop(); const prevView = viewHistory[viewHistory.length - 1];
+                document.activeElement.blur(); window.scrollTo(0, 0);
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); document.getElementById(prevView).classList.add('active');
+                if(prevView === 'view-home' || prevView === 'view-auth') document.getElementById('back-btn').style.display = 'none';
+                if(prevView === 'view-categories') renderCategories(); if(prevView === 'view-admin') renderAdminQuestions();
+                updateUndoButton();
+            }
+        }
+
+        function updateUndoButton() {
+            const btn = document.getElementById('undo-btn'), inQuiz = document.getElementById('view-flashcards').classList.contains('active') || document.getElementById('view-game').classList.contains('active');
+            if(inQuiz && sessionHistory.length > 0) btn.style.display = 'inline-block'; else btn.style.display = 'none';
+        }
+
+        function undoLastAction() {
+            if(sessionHistory.length === 0) return;
+            const last = sessionHistory.pop();
+            if(last.res === 'mastered') stats.mastered = stats.mastered.filter(q => q.question !== last.q.question);
+            else if (last.res === 'toLearn') stats.toLearn = stats.toLearn.filter(q => q.question !== last.q.question);
+            saveStats(); 
+            if(currentQuestionObj) activePool.push(currentQuestionObj);
+            currentQuestionObj = last.q;
+
+            if(currentMode === 'flashcards' || currentMode === 'polish' || currentMode === 'english') {
+                updateFlashcardUI(); document.getElementById('btn-fc-wrong').disabled = false; document.getElementById('btn-fc-correct').disabled = false;
+            } else if(currentMode === 'game') {
+                updateGameUI(); document.getElementById('game-next-btn').style.display = 'none'; document.getElementById('game-feedback').style.display = 'none';
+                document.getElementById('game-controls').style.display = 'block'; document.getElementById('game-input').value = ''; document.getElementById('game-input').focus();
+            }
+            updateUndoButton();
+        }
+
+        // KATEGORIE
+        function renderCategories() {
+            const list = document.getElementById('category-list');
+            let catsToRender = categories; if (currentMode === 'polish') catsToRender = polishCategories; else if (currentMode === 'english') catsToRender = englishCategories;
+            list.innerHTML = `
+                <label class="cat-label all-cat"><input type="checkbox" id="cat-all" onchange="toggleAllCategories(this)"><strong>Wszystkie Pytania</strong></label>
+                <label class="cat-label" style="grid-column: 1 / -1; background: rgba(207, 102, 121, 0.12); border-color: var(--error-color);">
+                    <input type="checkbox" class="cat-checkbox" value="ONLY_TO_LEARN" onchange="toggleOnlyToLearn(this)"><strong>Tylko oblane (Do powtórki) - ${stats.toLearn.length} pytań</strong>
+                </label>
+            `;
+            catsToRender.forEach(cat => { list.innerHTML += `<label class="cat-label"><input type="checkbox" class="cat-checkbox cat-regular" value="${cat}" onchange="toggleSingleCategory(this)">${cat}</label>`; });
+        }
+
+        function openCategories(mode) {
+            if (mode === 'flashcards' && !stats.unlocked.flashcards) return; if (mode === 'game' && !stats.unlocked.game) return;
+            if (mode === 'polish' && !stats.unlocked.polish) return; if (mode === 'english' && !stats.unlocked.english) return;
+            currentMode = mode; showView('view-categories'); renderCategories();
+        }
+
+        function toggleAllCategories(source) {
+            if(source.checked) { const only = document.querySelector('.cat-checkbox[value="ONLY_TO_LEARN"]'); if(only) only.checked = false; }
+            document.querySelectorAll('.cat-regular').forEach(cb => { cb.checked = source.checked; });
+        }
+        function toggleOnlyToLearn(source) {
+            if (source.checked) { document.querySelectorAll('.cat-regular').forEach(cb => cb.checked = false); const all = document.getElementById('cat-all'); if(all) all.checked = false; }
+        }
+        function toggleSingleCategory(source) {
+            if (source.checked) { const only = document.querySelector('.cat-checkbox[value="ONLY_TO_LEARN"]'); if(only) only.checked = false; } 
+            else { const allCb = document.getElementById('cat-all'); if(allCb) allCb.checked = false; }
+        }
+
+        function startSelectedMode() {
+            const checked = Array.from(document.querySelectorAll('.cat-checkbox:checked')).map(cb => cb.value);
+            if(checked.length === 0) return showCatError("Wybierz kategorię!");
+            activePool = []; sessionHistory = []; 
+            let poolSource = allQuestions; if (currentMode === 'polish') poolSource = polishQuestions; if (currentMode === 'english') poolSource = englishQuestions;
+
+            if(checked.includes("ONLY_TO_LEARN")) {
+                const poolQuestionsStrs = poolSource.map(q => q.question); activePool = stats.toLearn.filter(q => poolQuestionsStrs.includes(q.question));
+            } else {
+                const masteredStr = stats.mastered.map(q => q.question); activePool = poolSource.filter(q => checked.includes(q.category) && !masteredStr.includes(q.question));
+            }
+            for (let i = activePool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [activePool[i], activePool[j]] = [activePool[j], activePool[i]]; }
+            if(activePool.length === 0) return showCatError("Brak pytań (opanowane lub pusty zasób).");
+
+            if(currentMode === 'game') { showView('view-game'); loadNextGameQuestion(); } 
+            else { showView('view-flashcards'); loadNextFlashcard(); }
+        }
+
+        // QUIZ - FISZKI (Z uwzględnieniem odwrócenia)
+        function updateFlashcardUI() {
+            document.getElementById('fc-counter').textContent = `Pozostało: ${activePool.length + 1}`; 
+            document.getElementById('fc-cat-display').textContent = `Kategoria: ${currentQuestionObj.category || 'Brak'}`;
+            
+            const frontEl = document.getElementById('fc-front');
+            const backEl = document.getElementById('fc-back');
+
+            if (stats.settings.reverseFlashcards) {
+                frontEl.textContent = currentQuestionObj.answer;
+                backEl.textContent = currentQuestionObj.question;
+            } else {
+                frontEl.textContent = currentQuestionObj.question;
+                backEl.textContent = currentQuestionObj.answer;
+            }
+
+            const card = document.getElementById('flashcard'); 
+            card.classList.remove('flipped'); 
+            card.style.left = '0px';
+        }
+
+        function loadNextFlashcard() {
+            const card = document.getElementById('flashcard'); card.classList.remove('flipped'); card.style.left = '0px';
+            if(activePool.length === 0) {
+                document.getElementById('fc-front').innerHTML = "Koniec puli!<br><br><span style='font-size:1rem; color:var(--text-secondary);'>Wróć strzałką do menu.</span>"; 
+                document.getElementById('fc-back').innerHTML = "";
+                document.getElementById('fc-counter').textContent = "Pozostało: 0"; document.getElementById('fc-cat-display').textContent = "Kategoria: -";
+                currentQuestionObj = null; document.getElementById('btn-fc-wrong').disabled = true; document.getElementById('btn-fc-correct').disabled = true; updateUndoButton(); return;
+            }
+            document.getElementById('btn-fc-wrong').disabled = false; document.getElementById('btn-fc-correct').disabled = false;
+            currentQuestionObj = activePool.pop(); updateFlashcardUI(); updateUndoButton();
+        }
+
+        function flipCard() { if (currentQuestionObj) document.getElementById('flashcard').classList.toggle('flipped'); }
+
+        function handleCardSwipe(isCorrect) {
+            if(!currentQuestionObj) return;
+            document.getElementById('flashcard').style.left = isCorrect ? '100%' : '-100%';
+            sessionHistory.push({ q: currentQuestionObj, res: isCorrect ? 'mastered' : 'toLearn' });
+            if(isCorrect) moveToMastered(currentQuestionObj); else moveToToLearn(currentQuestionObj);
+            setTimeout(() => { loadNextFlashcard(); }, 280);
+        }
+
+        let touchstartX = 0, touchendX = 0;
+        const fcContainer = document.getElementById('fc-container');
+        fcContainer.addEventListener('touchstart', e => { touchstartX = e.changedTouches[0].screenX; }, {passive: true});
+        fcContainer.addEventListener('touchend', e => {
+            touchendX = e.changedTouches[0].screenX;
+            if (touchendX < touchstartX - 50 && currentQuestionObj) handleCardSwipe(false);
+            if (touchendX > touchstartX + 50 && currentQuestionObj) handleCardSwipe(true);
+        }, {passive: true});
+
+        // QUIZ - GRA
+        function updateGameUI() { document.getElementById('game-counter').textContent = `Pozostało: ${activePool.length + 1}`; document.getElementById('game-question').textContent = currentQuestionObj.question; }
+        
+        function loadNextGameQuestion() {
+            document.getElementById('game-feedback').style.display = 'none'; document.getElementById('game-controls').style.display = 'block';
+            document.getElementById('game-next-btn').style.display = 'none'; document.getElementById('game-input').value = '';
+
+            if(activePool.length === 0) {
+                document.getElementById('game-question').textContent = "Koniec puli pytań! Świetna robota."; document.getElementById('game-controls').style.display = 'none';
+                document.getElementById('game-counter').textContent = "Pozostało: 0"; updateUndoButton(); return;
+            }
+            currentQuestionObj = activePool.pop(); updateGameUI(); document.getElementById('game-input').focus(); updateUndoButton();
+        }
+
+        function checkGameAnswer() {
+            const userInput = document.getElementById('game-input').value; if(!userInput.trim()) return;
+            const isCorrect = validateAnswer(userInput, currentQuestionObj.answer), feedback = document.getElementById('game-feedback');
+            document.getElementById('game-controls').style.display = 'none'; document.getElementById('game-next-btn').style.display = 'block'; feedback.style.display = 'block';
+
+            sessionHistory.push({ q: currentQuestionObj, res: isCorrect ? 'mastered' : 'toLearn' });
+            if(isCorrect) {
+                feedback.innerHTML = `PRAWIDŁOWO!<br>Odpowiedź: ${currentQuestionObj.answer}`; feedback.style.color = "#000"; feedback.style.backgroundColor = "var(--success-color)";
+                moveToMastered(currentQuestionObj);
+            } else {
+                feedback.innerHTML = `BŁĄD!<br>Twoja: ${userInput}<br>Klucz: ${currentQuestionObj.answer}`; feedback.style.color = "#fff"; feedback.style.backgroundColor = "var(--error-color)";
+                moveToToLearn(currentQuestionObj);
+            }
+            updateUndoButton(); document.getElementById('game-next-btn').focus();
+        }
+
+        function skipGameQuestion() { sessionHistory.push({ q: currentQuestionObj, res: 'skipped' }); loadNextGameQuestion(); }
+
+        function validateAnswer(user, correct) {
+            let u = user.toLowerCase().replace(/[.,!?'"()]/g, "").trim(), c = correct.toLowerCase().replace(/[.,!?'"()]/g, "").trim();
+            if (u === c) return true;
+            const dateRegex = /\b(1\d{3}|20\d{2})\b/; const cDate = c.match(dateRegex), uDate = u.match(dateRegex);
+            if(cDate) { if(uDate && cDate[0] === uDate[0]) return true; return false; }
+            const cWords = c.split(/\s+/); if(cWords.length >= 2 && cWords.length <= 3) { const lastName = cWords[cWords.length - 1]; if(levenshtein(u, lastName) <= 1) return true; }
+            return levenshtein(u, c) <= (c.length > 8 ? 2 : (c.length > 4 ? 1 : 0));
+        }
+
+        function levenshtein(a, b) {
+            if(a.length === 0) return b.length; if(b.length === 0) return a.length;
+            let matrix = []; for(let i = 0; i <= b.length; i++) matrix[i] = [i]; for(let j = 0; j <= a.length; j++) matrix[0][j] = j;
+            for(let i = 1; i <= b.length; i++) { for(let j = 1; j <= a.length; j++) { if(b.charAt(i-1) === a.charAt(j-1)) matrix[i][j] = matrix[i-1][j-1]; else matrix[i][j] = Math.min(matrix[i-1][j-1]+1, matrix[i-1][j]+1, matrix[i][j-1]+1); } }
+            return matrix[b.length][a.length];
+        }
+
+        // ====== PANEL ADMINA ======
+        let editingIndex = -1;
+
+        function openAdminPanel() { showView('view-admin'); updateAdminFilterCategories(); renderAdminQuestions(); }
+
+        function updateAdminFilterCategories() {
+            const mode = document.getElementById('admin-filter-mode').value, sel = document.getElementById('admin-filter-cat');
+            sel.innerHTML = '<option value="ALL">Wszystkie z tego trybu</option>';
+            let catsToRender = categories; if(mode === 'polish') catsToRender = polishCategories; else if(mode === 'english') catsToRender = englishCategories;
+            catsToRender.forEach(c => { sel.innerHTML += `<option value="${c}">${c}</option>`; });
+        }
+
+        function updateAdminFormCategories() {
+            const mode = document.getElementById('admin-mode').value, sel = document.getElementById('admin-cat');
+            sel.innerHTML = '';
+            let catsToRender = categories; if(mode === 'polish') catsToRender = polishCategories; else if(mode === 'english') catsToRender = englishCategories;
+            catsToRender.forEach(c => { sel.innerHTML += `<option value="${c}">${c}</option>`; });
+            sel.innerHTML += `<option value="NEW_CAT">-- Dodaj nową kategorię... --</option>`;
+            checkAdminNewCat();
+        }
+
+        function checkAdminNewCat() {
+            const sel = document.getElementById('admin-cat'), newCatInput = document.getElementById('admin-new-cat');
+            if(sel.value === 'NEW_CAT') newCatInput.style.display = 'block'; else newCatInput.style.display = 'none';
+        }
+
+        function openAdminForm(idx, btnContext = null) {
+            document.getElementById('admin-form-box').style.display = 'block'; editingIndex = idx;
+            if(idx === -1) {
+                document.getElementById('admin-form-title').textContent = "Dodaj nowe pytanie";
+                document.getElementById('admin-q').value = ''; document.getElementById('admin-a').value = '';
+                updateAdminFormCategories();
+            } else {
+                document.getElementById('admin-form-title').textContent = "Edytuj pytanie";
+                const modeFilter = document.getElementById('admin-filter-mode').value;
+                document.getElementById('admin-mode').value = modeFilter;
+                updateAdminFormCategories();
+                
+                let sourceArray = allQuestions; if(modeFilter === 'polish') sourceArray = polishQuestions; else if(modeFilter === 'english') sourceArray = englishQuestions;
+                const q = sourceArray[idx];
+                document.getElementById('admin-cat').value = q.category; document.getElementById('admin-q').value = q.question; document.getElementById('admin-a').value = q.answer;
+                checkAdminNewCat();
+            }
+            document.getElementById('admin-form-box').scrollIntoView({behavior: 'smooth'});
+        }
+
+        function closeAdminForm() { document.getElementById('admin-form-box').style.display = 'none'; }
+
+        function saveAdminForm() {
+            const mode = document.getElementById('admin-mode').value;
+            let cat = document.getElementById('admin-cat').value;
+            if(cat === 'NEW_CAT') { cat = document.getElementById('admin-new-cat').value.trim(); if(!cat) return alert("Podaj nazwę kategorii!"); }
+            const q = document.getElementById('admin-q').value.trim(), a = document.getElementById('admin-a').value.trim();
+            if(!q || !a) return alert("Pytanie i odpowiedź nie mogą być puste.");
+
+            const newObj = { category: cat, question: q, answer: a };
+            let targetArray = allQuestions; if(mode === 'polish') targetArray = polishQuestions; else if(mode === 'english') targetArray = englishQuestions;
+
+            if(editingIndex === -1) targetArray.push(newObj);
+            else {
+                const oldMode = document.getElementById('admin-filter-mode').value;
+                if(oldMode !== mode) {
+                    let sourceArray = allQuestions; if(oldMode === 'polish') sourceArray = polishQuestions; else if(oldMode === 'english') sourceArray = englishQuestions;
+                    sourceArray.splice(editingIndex, 1); targetArray.push(newObj);
+                } else { targetArray[editingIndex] = newObj; }
+            }
+
+            categories = generateCategories(allQuestions); polishCategories = generateCategories(polishQuestions); englishCategories = generateCategories(englishQuestions);
+            pushGlobalQuestionsToFirebase(); closeAdminForm(); updateAdminFilterCategories(); renderAdminQuestions();
+        }
+
+        function adminDeleteQuestion(idx) {
+            if(!confirm("Na pewno usunąć to pytanie z chmury Firebase?")) return;
+            const mode = document.getElementById('admin-filter-mode').value;
+            let sourceArray = allQuestions; if(mode === 'polish') sourceArray = polishQuestions; else if(mode === 'english') sourceArray = englishQuestions;
+            sourceArray.splice(idx, 1);
+            categories = generateCategories(allQuestions); polishCategories = generateCategories(polishQuestions); englishCategories = generateCategories(englishQuestions);
+            pushGlobalQuestionsToFirebase(); renderAdminQuestions();
+        }
+
+        async function pushGlobalQuestionsToFirebase() {
+            try {
+                await db.ref('global_questions').set({ main: allQuestions, polish: polishQuestions, english: englishQuestions });
+                alert("Zapisano zmiany w chmurze! Wszyscy użytkownicy mają nową bazę.");
+            } catch(e) { alert("Błąd zapisu! Czy na pewno zalogowałeś się jako Administrator?"); }
+        }
+
+        function renderAdminQuestions() {
+            const mode = document.getElementById('admin-filter-mode').value;
+            const catSelect = document.getElementById('admin-filter-cat');
+            
+            const firstOpt = catSelect.options[1]; let needsUpdate = false;
+            if (mode === 'polish' && firstOpt && !polishCategories.includes(firstOpt.value)) needsUpdate = true;
+            if (mode === 'main' && firstOpt && !categories.includes(firstOpt.value)) needsUpdate = true;
+            if (mode === 'english' && firstOpt && !englishCategories.includes(firstOpt.value)) needsUpdate = true;
+            if (needsUpdate) updateAdminFilterCategories();
+
+            const cat = catSelect.value, list = document.getElementById('admin-questions-list'); list.innerHTML = '';
+            let sourceArray = allQuestions; if(mode === 'polish') sourceArray = polishQuestions; else if(mode === 'english') sourceArray = englishQuestions;
+
+            let html = '';
+            sourceArray.forEach((q, idx) => {
+                if(cat !== 'ALL' && q.category !== cat) return;
+                html += `
+                <div class="list-item admin-item">
+                    <div style="font-size:0.85rem; color:var(--accent-color);">${q.category}</div>
+                    <div><strong>P:</strong> ${q.question}</div>
+                    <div><strong>O:</strong> ${q.answer}</div>
+                    <div class="admin-btn-row">
+                        <button class="btn-small" onclick="openAdminForm(${idx}, this)">Edytuj</button>
+                        <button class="btn-small" style="background:var(--error-color);" onclick="adminDeleteQuestion(${idx})">Usuń</button>
+                    </div>
+                </div>`;
+            });
+            list.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
